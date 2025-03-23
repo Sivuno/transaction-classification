@@ -2,6 +2,7 @@ import logging
 import asyncio
 import time
 import json
+import math
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 import boto3
@@ -102,6 +103,12 @@ class DynamoDBStorage:
         elif isinstance(item, list):
             return [DynamoDBStorage._convert_to_dynamodb_format(i) for i in item]
         elif isinstance(item, float):
+            if math.isnan(item):
+                logger.warning("NaN value detected and replaced with None")
+                return None
+            elif math.isinf(item):
+                logger.warning("Infinity value detected and replaced with None")
+                return None
             return Decimal(str(item))
         elif isinstance(item, (int, str, bool, type(None))):
             return item
@@ -322,4 +329,4 @@ class DynamoDBWriter:
 
     async def get_total_rows(self):
         """Return the total number of rows written so far."""
-        return self.total_rows 
+        return self.total_rows
