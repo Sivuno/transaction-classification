@@ -173,16 +173,34 @@ async def process_transaction_with_csv(
     
     for attempt in range(max_retries):
         try:
-            logger.debug(f"process_transaction_with_csv attempt {attempt + 1}/{max_retries} for transaction {row.get('Transaction_ID', 'UNKNOWN')}")
-            
+            # Handle input format variations - map new field names to expected ones
             row_dict = row.to_dict() if hasattr(row, 'to_dict') else dict(row)
+            
+            # Map new field names to old field names if they exist
+            field_mappings = {
+                'transaction_id': 'Transaction_ID',
+                'supplier_name': 'Supplier_Name',
+                'original_line_item_description': 'Transaction_Description',
+                'transaction_value': 'Transaction_Value'
+            }
+            
+            # Apply mappings while preserving backward compatibility
+            for new_field, old_field in field_mappings.items():
+                if new_field in row_dict and old_field not in row_dict:
+                    row_dict[old_field] = row_dict[new_field]
+            
+            # Set primary_descriptor based on original_line_item_description if needed
+            if 'original_line_item_description' in row_dict and 'primary_descriptor' not in row_dict:
+                row_dict['primary_descriptor'] = row_dict['original_line_item_description']
+            
             transaction_id = row_dict.get('Transaction_ID', 'UNKNOWN')
+            logger.debug(f"process_transaction_with_csv attempt {attempt + 1}/{max_retries} for transaction {transaction_id}")
             
             customer_id = str(row_dict.get('customer_id', '')).strip()
             if not customer_id:
                 logger.error(f"Missing customer_id in row for transaction {transaction_id}")
                 return None
-                
+            
             # Create embedding for customer collection search
             customer_search_text = f"{row_dict.get('Supplier_Name', '')} {row_dict.get('Transaction_Description', '')}"
             logger.debug(f"Creating customer search embedding for transaction {transaction_id}")
